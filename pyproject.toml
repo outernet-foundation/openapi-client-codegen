@@ -26,7 +26,7 @@ include = [
 ]
 
 [tool.uv.sources]
-bashrun = { git = "https://github.com/outernet-foundation/bashrun.git", rev = "570290bf6f1a6873f060f95a766fb7649837f54a" }
+bashrun = { git = "https://github.com/outernet-foundation/bashrun.git", rev = "1a0add1eb9e53e19245dcdda3e2018577b4e1153" }
 
 [tool.basedpyright]
 typeCheckingMode = "strict"

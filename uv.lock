@@ -26,7 +26,7 @@ wheels = [
 [[package]]
 name = "bashrun"
 version = "0.1.0"
-source = { git = "https://github.com/outernet-foundation/bashrun.git?rev=570290bf6f1a6873f060f95a766fb7649837f54a#570290bf6f1a6873f060f95a766fb7649837f54a" }
+source = { git = "https://github.com/outernet-foundation/bashrun.git?rev=1a0add1eb9e53e19245dcdda3e2018577b4e1153#1a0add1eb9e53e19245dcdda3e2018577b4e1153" }
 
 [[package]]
 name = "colorama"
@@ -101,7 +101,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "bashrun", git = "https://github.com/outernet-foundation/bashrun.git?rev=570290bf6f1a6873f060f95a766fb7649837f54a" },
+    { name = "bashrun", git = "https://github.com/outernet-foundation/bashrun.git?rev=1a0add1eb9e53e19245dcdda3e2018577b4e1153" },
     { name = "typer", specifier = ">=0.17.4" },
 ]
 
