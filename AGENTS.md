@@ -34,7 +34,7 @@ To author a new patch: author the raw templates (`openapi-generator-cli author t
 
 ### The Unity reference set is coupled to the patched templates
 
-`unity.write_unity_package_metadata` hardcodes the `.asmdef` base references `Newtonsoft.Json / Polly / JsonSubTypes / UniTask`. These are exactly the runtime support the patched C# templates emit calls against (UniTask return types, Polly retry, JsonSubTypes discriminators, Newtonsoft serialization). They travel with the patches as one unit; a consumer adds project-specific references via `extra_references`, it does not replace the base set.
+`unity.write_unity_package_metadata` hardcodes the `.asmdef` base references `Newtonsoft.Json / Polly / JsonSubTypes`. These are exactly the runtime support the patched C# templates emit calls against (Polly retry, JsonSubTypes discriminators, Newtonsoft serialization). They travel with the patches as one unit; a consumer adds project-specific references via `extra_references`, it does not replace the base set.
 
 ### What the consumer owns
 
