@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-BASE_REFERENCES = ["Newtonsoft.Json", "Polly", "JsonSubTypes", "UniTask"]
+BASE_REFERENCES = ["Newtonsoft.Json", "Polly", "JsonSubTypes"]
 
 
 def write_unity_package_metadata(
