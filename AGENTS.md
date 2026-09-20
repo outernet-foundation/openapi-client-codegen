@@ -14,8 +14,8 @@ The package is `openapi_clientgen` (src-layout under `src/openapi_clientgen/`). 
 |---|---|
 | `downgrade_openapi_3_1_to_3_0(schema)` | In-place 3.1.0→3.0.3 fixup (openapi-generator rejects 3.1). Pure function. |
 | `regenerate_templates(target_dir, extra_patches_dir=None)` | Author the C# templates into `target_dir/csharp` and apply the shipped (then optional extra) patches. |
-| `generate_client(spec, generator, output_dir, names, templates_dir=None, extra_references=None)` | Run the generator for one `(spec, generator)` and sync the result into `output_dir`. `templates_dir` is required for `csharp`. |
-| `write_unity_package_metadata(package_dir, package_name, extra_references=None)` | Write `package.json` / `.asmdef` / `csc.rsp` and strip MSBuild files. Called by `generate_client` for csharp. |
+| `generate_client(spec, generator, output_dir, names, templates_dir=None, extra_references=None, npm_scope=None, license_spdx=None, repository_url=None)` | Run the generator for one `(spec, generator)` and sync the result into `output_dir`. `templates_dir` is required for `csharp`. For csharp, `npm_scope` composes the UPM identity `{scope}.{base-minus-dashes}` (e.g. `org.outernet.placeframe.apiclient`); unset falls back to the legacy `org.nuget.{camel-lower}` identity. `license_spdx` / `repository_url` populate the manifest's `license` / `repository` fields when given. |
+| `write_unity_package_metadata(package_dir, package_name, extra_references=None, npm_name=None, license_spdx=None, repository_url=None)` | Write `package.json` / `.asmdef` / `csc.rsp` / `Directory.Build.props`. Called by `generate_client` for csharp. |
 | `DefaultNamingPolicy(root_name)` / `ClientNaming` / `NamingPolicy` | Package-name derivation. `DefaultNamingPolicy("placeframe")("docker/api")` → base `api-client`, dashed `placeframe-api-client`, underscored `placeframe_api_client`, camel `PlaceframeApiClient`. |
 
 A consumer orchestrates: `regenerate_templates(tmp)` once, then per `(project, client)` produce the spec, `downgrade` it, and call `generate_client`. The generator version pin and the shipped configs/patches/ignore-file live in `src/openapi_clientgen/_data/` (paths in `_data.py`).
@@ -35,6 +35,12 @@ To author a new patch: author the raw templates (`openapi-generator-cli author t
 ### The Unity reference set is coupled to the patched templates
 
 `unity.write_unity_package_metadata` hardcodes the `.asmdef` base references `Newtonsoft.Json / Polly / JsonSubTypes`. These are exactly the runtime support the patched C# templates emit calls against (Polly retry, JsonSubTypes discriminators, Newtonsoft serialization). They travel with the patches as one unit; a consumer adds project-specific references via `extra_references`, it does not replace the base set.
+
+`BASE_DEPENDENCIES` is the UPM dual of that reference set: the same three libraries expressed as `package.json` dependencies (Newtonsoft as the Unity-blessed `com.unity.nuget.newtonsoft-json`, the others as UnityNuGet `org.nuget.*` identities), as version ranges so consumer manifests carrying newer minors don't conflict. It travels with `BASE_REFERENCES` — change one, change the other.
+
+### The csproj ships in the package; MSBuild output is redirected around it
+
+The generated `.csproj` stays inside the UPM package because it is the `dotnet pack` input for the nuget feed. To keep IDE builds from writing `bin/`/`obj/` into the package (Unity errors on the missing `.meta` files, and the npm tarball must not carry build output), `write_unity_package_metadata` writes a `Directory.Build.props` next to it that redirects `BaseIntermediateOutputPath` / `BaseOutputPath` two directories up — outside the package root under every consumption layout (repo checkout → client grouping dir; Unity PackageCache → `Library/`, which the asset importer ignores). The shipped template patch `0008` points the csproj's `DocumentationFile` at `$(BaseOutputPath)` for the same reason; `Directory.Build.props` is imported before the project body, so the property is visible at that evaluation point.
 
 ### What the consumer owns
 

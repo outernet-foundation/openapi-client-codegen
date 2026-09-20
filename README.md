@@ -11,11 +11,16 @@ The generic steps live here; the caller supplies the OpenAPI spec, the project�
 
 ## CLI
 
-A thin CLI exposes the OpenAPI 3.1→3.0 downgrade as a standalone step:
+A thin CLI exposes the OpenAPI 3.1→3.0 downgrade and single-client generation:
 
 ```bash
-uv run openapi-clientgen path/to/openapi.json            # downgrade in place
-uv run openapi-clientgen path/to/openapi.json out.json   # write elsewhere
+uv run openapi-clientgen downgrade path/to/openapi.json            # 3.1→3.0 in place
+uv run openapi-clientgen downgrade path/to/openapi.json out.json   # write elsewhere
+
+uv run openapi-clientgen generate path/to/openapi.json generated/csharp/api-client \
+  --root-name myproject --project services/api \
+  --npm-scope org.example.myproject --license-spdx Apache-2.0 \
+  --repository-url https://github.com/org/repo.git
 ```
 
 Client generation itself is driven from Python (it needs the consumer's project map, naming policy, and output paths):
