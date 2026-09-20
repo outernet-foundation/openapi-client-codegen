@@ -38,9 +38,9 @@ def test_manifest_defaults(tmp_path: Path):
     assert package["displayName"] == "PlaceframeApiClient"
     assert package["version"] == "0.0.0-local"
     assert package["dependencies"] == {
-        "com.unity.nuget.newtonsoft-json": ">=3.2.1 <4.0.0",
-        "org.nuget.polly": ">=8.1.0 <9.0.0",
-        "org.nuget.jsonsubtypes": ">=2.0.1 <3.0.0",
+        "com.unity.nuget.newtonsoft-json": "3.x",
+        "org.nuget.polly": "8.x",
+        "org.nuget.jsonsubtypes": "2.x",
     }
     assert "license" not in package
     assert "repository" not in package
