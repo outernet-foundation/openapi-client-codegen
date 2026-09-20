@@ -6,13 +6,14 @@ BASE_REFERENCES = ["Newtonsoft.Json", "Polly", "JsonSubTypes"]
 # UPM dual of BASE_REFERENCES: the asmdef compiles against the assembly names, the manifest
 # resolves the same runtime support as packages. Newtonsoft maps to the Unity-blessed package
 # instead of the UnityNuGet mirror identity, which collides with the assembly Unity itself
-# provides. Unity's package resolver accepts only exact versions and x-wildcard ranges (2.x,
-# 2.5.x); npm comparator syntax (">=2.0.1 <3.0.0") fails resolution at import time. Wildcard
-# ranges also let consumer manifests carrying newer minors avoid conflict.
+# provides. Exact versions, not ranges: UPM's package.json dependencies accept SemVer values
+# only — the resolver rejects every range syntax (comparators, x-wildcards) with "Version 'X'
+# is invalid" — and it treats a value as a minimum when resolving, so consumer manifests
+# carrying newer minors still resolve without conflict.
 BASE_DEPENDENCIES = {
-    "com.unity.nuget.newtonsoft-json": "3.x",
-    "org.nuget.polly": "8.x",
-    "org.nuget.jsonsubtypes": "2.x",
+    "com.unity.nuget.newtonsoft-json": "3.2.1",
+    "org.nuget.polly": "8.1.0",
+    "org.nuget.jsonsubtypes": "2.0.1",
 }
 
 # The csproj stays in the package (it is the nuget pack input), so MSBuild output is redirected
