@@ -36,7 +36,7 @@ To author a new patch: author the raw templates (`openapi-generator-cli author t
 
 `unity.write_unity_package_metadata` hardcodes the `.asmdef` base references `Newtonsoft.Json / Polly / JsonSubTypes`. These are exactly the runtime support the patched C# templates emit calls against (Polly retry, JsonSubTypes discriminators, Newtonsoft serialization). They travel with the patches as one unit; a consumer adds project-specific references via `extra_references`, it does not replace the base set.
 
-`BASE_DEPENDENCIES` is the UPM dual of that reference set: the same three libraries expressed as `package.json` dependencies (Newtonsoft as the Unity-blessed `com.unity.nuget.newtonsoft-json`, the others as UnityNuGet `org.nuget.*` identities), as version ranges so consumer manifests carrying newer minors don't conflict. It travels with `BASE_REFERENCES` — change one, change the other.
+`BASE_DEPENDENCIES` is the UPM dual of that reference set: the same three libraries expressed as `package.json` dependencies (Newtonsoft as the Unity-blessed `com.unity.nuget.newtonsoft-json`, the others as UnityNuGet `org.nuget.*` identities), as exact versions — UPM's package.json dependencies accept SemVer values only, no range syntax, and the resolver treats a value as a minimum, so consumer manifests carrying newer minors still resolve without conflict. It travels with `BASE_REFERENCES` — change one, change the other.
 
 ### The csproj ships in the package; MSBuild output is redirected around it
 
