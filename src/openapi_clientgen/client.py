@@ -20,6 +20,9 @@ def generate_client(
     names: ClientNaming,
     templates_dir: Path | None = None,
     extra_references: list[str] | None = None,
+    npm_scope: str | None = None,
+    license_spdx: str | None = None,
+    repository_url: str | None = None,
 ) -> None:
     if generator == "csharp" and templates_dir is None:
         msg = "csharp client generation requires templates_dir (call regenerate_templates first)"
@@ -71,7 +74,15 @@ def generate_client(
         print(f"Generated {generator} client (temp) at {temporary_directory}")
 
         if generator == "csharp":
-            write_unity_package_metadata(temporary_directory / "src" / names.camel, names.camel, extra_references)
+            npm_name = None if npm_scope is None else f"{npm_scope}.{names.base.replace('-', '')}"
+            write_unity_package_metadata(
+                temporary_directory / "src" / names.camel,
+                names.camel,
+                extra_references,
+                npm_name=npm_name,
+                license_spdx=license_spdx,
+                repository_url=repository_url,
+            )
 
         print(f"Syncing to {output_dir}...")
 
