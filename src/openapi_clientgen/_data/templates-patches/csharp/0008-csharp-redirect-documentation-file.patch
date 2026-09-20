@@ -1,0 +1,18 @@
+# The csproj ships inside the UPM package as the nuget pack input, and Directory.Build.props
+# (written by unity.write_unity_package_metadata) relocates MSBuild's BaseOutputPath outside the
+# package root. Point DocumentationFile at that relocated base so the docs XML — the one stock
+# template output with a hardwired package-local bin\ path — stops recreating bin/ inside the
+# package on every build. $(BaseOutputPath) is defined by Directory.Build.props, which MSBuild
+# imports before the project body, so it is visible at this property's evaluation point.
+diff --git a/csharp/netcore_project.mustache b/csharp/netcore_project.mustache
+--- a/csharp/netcore_project.mustache
++++ b/csharp/netcore_project.mustache
+@@ -14,7 +14,7 @@
+     <Copyright>{{packageCopyright}}</Copyright>
+     <RootNamespace>{{packageName}}</RootNamespace>
+     <Version>{{packageVersion}}</Version>
+-    <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\{{packageName}}.xml</DocumentationFile>{{#licenseId}}
++    <DocumentationFile>$(BaseOutputPath)$(Configuration)\$(TargetFramework)\{{packageName}}.xml</DocumentationFile>{{#licenseId}}
+     <PackageLicenseExpression>{{.}}</PackageLicenseExpression>{{/licenseId}}
+     <RepositoryUrl>https://{{{gitHost}}}/{{{gitUserId}}}/{{{gitRepoId}}}.git</RepositoryUrl>
+     <RepositoryType>git</RepositoryType>{{#releaseNote}}
