@@ -1,9 +1,9 @@
 {
   "packages": [
     {
-      "name": "openapi-clientgen",
+      "name": "openapi-client-codegen",
       "path": ".",
-      "feeds": { "pypi": "openapi-clientgen" }
+      "feeds": { "pypi": "openapi-client-codegen" }
     }
   ],
   "ci_workflow": "ci.yml",

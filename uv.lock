@@ -88,7 +88,7 @@ wheels = [
 ]
 
 [[package]]
-name = "openapi-clientgen"
+name = "openapi-client-codegen"
 version = "0.0.0.dev0"
 source = { editable = "." }
 dependencies = [

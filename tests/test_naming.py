@@ -1,4 +1,4 @@
-from openapi_clientgen import DefaultNamingPolicy
+from openapi_client_codegen import DefaultNamingPolicy
 
 
 def test_default_naming_derives_all_variants():
