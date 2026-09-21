@@ -1,6 +1,6 @@
-# openapi-clientgen
+# openapi-client-codegen
 
-Generate typed API clients from an OpenAPI schema. `openapi-clientgen` wraps [OpenAPI Generator](https://openapi-generator.tech/): it downgrades OpenAPI 3.1→3.0 (the generator only accepts 3.0), authors and patches the C# templates, runs the generator, and writes Unity package metadata. It produces a Python (`httpx`) client and a Unity-consumable C# (`httpclient`) client.
+Generate typed API clients from an OpenAPI schema. `openapi-client-codegen` wraps [OpenAPI Generator](https://openapi-generator.tech/): it downgrades OpenAPI 3.1→3.0 (the generator only accepts 3.0), authors and patches the C# templates, runs the generator, and writes Unity package metadata. It produces a Python (`httpx`) client and a Unity-consumable C# (`httpclient`) client.
 
 The generic steps live here; the caller supplies the OpenAPI spec, the project→client mapping, the package-name policy, and the output paths. See [`AGENTS.md`](./AGENTS.md) for the API surface, the lib-owns/consumer-owns boundary, and the patch mechanism.
 
@@ -14,10 +14,10 @@ The generic steps live here; the caller supplies the OpenAPI spec, the project�
 A thin CLI exposes the OpenAPI 3.1→3.0 downgrade and single-client generation:
 
 ```bash
-uv run openapi-clientgen downgrade path/to/openapi.json            # 3.1→3.0 in place
-uv run openapi-clientgen downgrade path/to/openapi.json out.json   # write elsewhere
+uv run openapi-client-codegen downgrade path/to/openapi.json            # 3.1→3.0 in place
+uv run openapi-client-codegen downgrade path/to/openapi.json out.json   # write elsewhere
 
-uv run openapi-clientgen generate path/to/openapi.json generated/csharp/api-client \
+uv run openapi-client-codegen generate path/to/openapi.json generated/csharp/api-client \
   --root-name myproject --project services/api \
   --npm-scope org.example.myproject --license-spdx Apache-2.0 \
   --repository-url https://github.com/org/repo.git
@@ -30,7 +30,7 @@ import json
 import tempfile
 from pathlib import Path
 
-from openapi_clientgen import (
+from openapi_client_codegen import (
     DefaultNamingPolicy,
     downgrade_openapi_3_1_to_3_0,
     generate_client,
@@ -58,10 +58,10 @@ Install from PyPI:
 
 ```toml
 [project]
-dependencies = ["openapi-clientgen>=0.1.0"]
+dependencies = ["openapi-client-codegen>=0.1.0"]
 ```
 
-`bashrun` resolves transitively. At **runtime** the generator also needs Java (JDK 11+) and `uvx` on PATH. To test an unreleased change, pin the repo at a git ref in a scratch branch instead (`openapi-clientgen = { git = "…", rev = "<sha>" }` under `[tool.uv.sources]`) and drop the pin when the release lands.
+`bashrun` resolves transitively. At **runtime** the generator also needs Java (JDK 11+) and `uvx` on PATH. To test an unreleased change, pin the repo at a git ref in a scratch branch instead (`openapi-client-codegen = { git = "…", rev = "<sha>" }` under `[tool.uv.sources]`) and drop the pin when the release lands.
 
 ## Development
 
