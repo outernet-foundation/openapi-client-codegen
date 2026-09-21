@@ -1,0 +1,11 @@
+{
+  "packages": [
+    {
+      "name": "openapi-clientgen",
+      "path": ".",
+      "feeds": { "pypi": "openapi-clientgen" }
+    }
+  ],
+  "ci_workflow": "ci.yml",
+  "mirror_prefix": "ghcr.io/outernet-foundation/mirror"
+}
