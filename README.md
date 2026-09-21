@@ -54,16 +54,14 @@ generate_client(
 
 ## Consuming from another repo
 
-git-reference the package and declare `bashrun`'s source alongside it (uv's `[tool.uv.sources]` are not transitive):
+Install from PyPI:
 
 ```toml
 [project]
-dependencies = ["openapi-clientgen"]
-
-[tool.uv.sources]
-openapi-clientgen = { git = "https://github.com/outernet-foundation/openapi-clientgen.git", rev = "<pin-a-commit-sha>" }
-bashrun = { git = "https://github.com/outernet-foundation/bashrun.git", rev = "<pin-a-commit-sha>" }
+dependencies = ["openapi-clientgen>=0.1.0"]
 ```
+
+`bashrun` resolves transitively. At **runtime** the generator also needs Java (JDK 11+) and `uvx` on PATH. To test an unreleased change, pin the repo at a git ref in a scratch branch instead (`openapi-clientgen = { git = "…", rev = "<sha>" }` under `[tool.uv.sources]`) and drop the pin when the release lands.
 
 ## Development
 

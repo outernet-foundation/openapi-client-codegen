@@ -4,7 +4,11 @@
 
 `openapi-clientgen` wraps [OpenAPI Generator](https://openapi-generator.tech/) to turn an OpenAPI schema into typed client packages — a Python (`httpx`) client and a Unity-consumable C# (`httpclient`) client. It owns every step that is generic across consumers: downgrading 3.1→3.0, authoring and patching the C# templates, running the generator, and writing the Unity package metadata. The caller owns what is inherently project-specific: **producing the OpenAPI spec** (however its app exposes one), which projects map to which clients, the package-name policy, and the output paths.
 
-The package is `openapi_clientgen` (src-layout under `src/openapi_clientgen/`). Its Python dependencies are `bashrun` (the guardrailed subprocess wrapper) and `typer` (the thin CLI). At **runtime** it also needs **Java (JDK 11+)** and **`uvx`** on PATH — the generator itself runs as `uvx --from 'openapi-generator-cli[jdk4py]==<pin>' ...`.
+The package is `openapi_clientgen` (src-layout under `src/openapi_clientgen/`). Its Python dependencies are `bashrun` (the guardrailed subprocess wrapper) and `typer` (the thin CLI), both from PyPI — git-source pins only in scratch branches testing unreleased changes. At **runtime** it also needs **Java (JDK 11+)** and **`uvx`** on PATH — the generator itself runs as `uvx --from 'openapi-generator-cli[jdk4py]==<pin>' ...`.
+
+## Release flow
+
+Publishing rides `ci.yml`'s `publish` job on every push to `main` (gated on the check job): pubpkg — invoked uvx-isolated from a pinned git ref, never a project dependency (openapi-clientgen sits inside pubpkg's transitive dependency graph; a project-level pubpkg edge is a resolver cycle) — computes the plan from the tag ledger and path-diff, patches the version ephemerally, and publishes to PyPI under OIDC trusted publishing (pending publisher bound to `ci.yml`, no environment). The committed `pyproject.toml` version is permanently the `0.0.0.dev0` sentinel; the `openapi-clientgen-v*` tags are the version ledger (first release `0.1.0`, patch-auto thereafter). API-breaking changes ship with a manually bumped version — patch-auto assumes additive changes.
 
 ## Public API
 
