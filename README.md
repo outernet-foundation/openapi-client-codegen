@@ -37,7 +37,7 @@ The same surface is the library API, for in-process consumption from a consumer'
 import json
 from pathlib import Path
 
-from openapi_client_codegen import dump_openapi_spec, generate_projects
+from openapi_client_codegen.orchestrator import dump_openapi_spec, generate_projects
 
 projects = json.loads(Path("clients.json").read_text(encoding="utf-8"))
 generate_projects(

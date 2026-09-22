@@ -12,15 +12,14 @@ Publishing rides `ci.yml`'s `publish` job on every push to `main` (gated on the 
 
 ## Public API
 
-`__init__` re-exports the surface; import from the package root.
+The package init is empty (RUF067 strict mode — the canonical ruff config bans any content in `__init__.py`); import each symbol from its defining module: `client` (`generate_client`), `downgrade` (`downgrade_openapi_3_1_to_3_0`, `JsonDict`), `naming` (`ClientNaming`, `DefaultNamingPolicy`, `NamingPolicy`), `orchestrator` (`generate_projects`, `dump_openapi_spec`, `SpecProducer`), `templates` (`regenerate_templates`), `unity` (`write_unity_package_metadata`).
 
 | Symbol | Role |
 |---|---|
 | `downgrade_openapi_3_1_to_3_0(schema)` | In-place 3.1.0→3.0.3 fixup (openapi-generator rejects 3.1). Pure function. |
 | `generate_projects(projects, root_name, generated_root, dump_spec, npm_scope=None, license_spdx=None, repository_url=None, project=None, client=None, no_cache=False, root=Path())` | The project orchestrator: per mapping entry (`{project path: [generators]}`), produce the spec via the injected `dump_spec` strategy, downgrade it, write `<project>/openapi.json` unless byte-identical to the committed spec (`no_cache` forces through), and `generate_client` per listed generator into `<generated_root>/<generator>/<names.base>`. `project` / `client` restrict the run to one entry; `root` is what project paths resolve against. |
-| `SpecProducer` | Type alias `Callable[[Path], str]` — project directory in, raw OpenAPI JSON string out. The strategy owns however the source project exposes its spec. |
+| `SpecProducer(command)` | Callable class wrapping any shell command that prints the spec to stdout, run with the project directory as cwd; the CLI `--spec-command` bridge. The strategy contract itself is untyped vocabulary — any `Callable[[Path], str]` (project directory in, raw OpenAPI JSON out) satisfies `dump_spec`. |
 | `dump_openapi_spec(project)` | The org strategy: `uv run --project . python -m src.dump_openapi` with `CODEGEN=1` gating heavy imports (per-call env overlay). Shipped as the exemplar — `dump_spec` is required, so every consumer names its strategy explicitly. |
-| `CommandSpecProducer(command)` | Callable class wrapping any shell command that prints the spec to stdout, run with the project directory as cwd; the CLI `--spec-command` bridge. |
 | `regenerate_templates(target_dir, extra_patches_dir=None)` | Author the C# templates into `target_dir/csharp` and apply the shipped (then optional extra) patches. |
 | `generate_client(spec, generator, output_dir, names, templates_dir=None, extra_references=None, npm_scope=None, license_spdx=None, repository_url=None)` | Run the generator for one `(spec, generator)` and sync the result into `output_dir`. `templates_dir` is required for `csharp`. For csharp, `npm_scope` composes the UPM identity `{scope}.{base-minus-dashes}` (e.g. `org.outernet.placeframe.apiclient`); unset falls back to the legacy `org.nuget.{camel-lower}` identity. `license_spdx` / `repository_url` populate the manifest's `license` / `repository` fields when given. |
 | `write_unity_package_metadata(package_dir, package_name, extra_references=None, npm_name=None, license_spdx=None, repository_url=None)` | Write `package.json` / `.asmdef` / `csc.rsp` / `Directory.Build.props`. Called by `generate_client` for csharp. |
