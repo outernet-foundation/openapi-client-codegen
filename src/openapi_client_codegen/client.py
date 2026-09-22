@@ -4,7 +4,7 @@ from pathlib import Path
 from shutil import copytree
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 
-from bashrun import bash
+from bashrun.bash import bash
 
 from .resources import CONFIGS_DIR, IGNORE_FILE, OPENAPI_GENERATOR_CLI_VERSION
 from .naming import ClientNaming

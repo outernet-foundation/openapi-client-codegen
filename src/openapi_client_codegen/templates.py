@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from bashrun import bash
+from bashrun.bash import bash
 
 from .resources import OPENAPI_GENERATOR_CLI_VERSION, SHIPPED_PATCHES_DIR
 

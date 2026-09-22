@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from openapi_client_codegen import write_unity_package_metadata
+from openapi_client_codegen.unity import write_unity_package_metadata
 
 
 def write_package(

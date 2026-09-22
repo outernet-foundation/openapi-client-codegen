@@ -5,10 +5,10 @@ from typing import Annotated
 
 from typer import Argument, Option, Typer
 
-from . import orchestrator
 from .client import generate_client
 from .downgrade import downgrade_openapi_3_1_to_3_0
 from .naming import DefaultNamingPolicy
+from .orchestrator import SpecProducer, generate_projects
 from .templates import regenerate_templates
 
 app = Typer(pretty_exceptions_show_locals=False)
@@ -54,8 +54,8 @@ def generate(
         )
 
 
-@app.command()
-def generate_projects(
+@app.command("generate-projects")
+def generate_projects_command(
     config: Annotated[Path, Option(help="JSON file mapping project paths to client generator lists")],
     root_name: Annotated[str, Option(help="Root name handed to DefaultNamingPolicy")],
     generated_root: Annotated[Path, Option(help="Root directory the generated clients sync into")],
@@ -76,11 +76,11 @@ def generate_projects(
     root: Annotated[Path, Option(help="Repository root the project paths resolve against")] = Path(),
 ) -> None:
     projects: dict[str, list[str]] = json.loads(config.read_text(encoding="utf-8"))
-    orchestrator.generate_projects(
+    generate_projects(
         projects,
         root_name=root_name,
         generated_root=generated_root,
-        dump_spec=orchestrator.CommandSpecProducer(spec_command),
+        dump_spec=SpecProducer(spec_command),
         npm_scope=npm_scope,
         license_spdx=license_spdx,
         repository_url=repository_url,

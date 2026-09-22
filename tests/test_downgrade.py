@@ -1,6 +1,6 @@
 from typing import Any
 
-from openapi_client_codegen import downgrade_openapi_3_1_to_3_0
+from openapi_client_codegen.downgrade import downgrade_openapi_3_1_to_3_0
 
 
 def test_bumps_version():

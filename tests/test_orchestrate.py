@@ -1,19 +1,14 @@
 import copy
 import json
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
-from openapi_client_codegen import (
-    ClientNaming,
-    CommandSpecProducer,
-    SpecProducer,
-    downgrade_openapi_3_1_to_3_0,
-    dump_openapi_spec,
-    generate_projects,
-)
 from openapi_client_codegen import orchestrator
-from openapi_client_codegen.downgrade import JsonDict
+from openapi_client_codegen.downgrade import JsonDict, downgrade_openapi_3_1_to_3_0
+from openapi_client_codegen.naming import ClientNaming
+from openapi_client_codegen.orchestrator import SpecProducer, dump_openapi_spec, generate_projects
 
 RAW_SCHEMA: JsonDict = {"openapi": "3.1.0", "info": {"title": "demo", "version": "0.0.0"}, "paths": {}}
 
@@ -154,7 +149,7 @@ def test_dump_openapi_spec_pins_the_org_convention(recorder: Recorder) -> None:
 
 
 def test_command_spec_producer_runs_with_project_cwd(recorder: Recorder) -> None:
-    producer: SpecProducer = CommandSpecProducer("dotnet run -- dump-openapi")
+    producer: Callable[[Path], str] = SpecProducer("dotnet run -- dump-openapi")
 
     produced = producer(Path("services/api"))
 

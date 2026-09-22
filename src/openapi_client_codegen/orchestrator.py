@@ -5,17 +5,15 @@ from collections.abc import Callable
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from bashrun import bash_output
+from bashrun.bash import bash_output
 
 from .client import generate_client
 from .downgrade import downgrade_openapi_3_1_to_3_0
 from .naming import DefaultNamingPolicy
 from .templates import regenerate_templates
 
-type SpecProducer = Callable[[Path], str]
 
-
-class CommandSpecProducer:
+class SpecProducer:
     def __init__(self, command: str) -> None:
         self.command = command
 
@@ -27,7 +25,7 @@ def generate_projects(
     projects: dict[str, list[str]],
     root_name: str,
     generated_root: Path,
-    dump_spec: SpecProducer,
+    dump_spec: Callable[[Path], str],
     npm_scope: str | None = None,
     license_spdx: str | None = None,
     repository_url: str | None = None,
@@ -76,7 +74,7 @@ def dump_openapi_spec(project: Path) -> str:
     return bash_output("uv run --project . python -m src.dump_openapi", cwd=project, env={"CODEGEN": "1"})
 
 
-def _produce_and_cache_spec(project: Path, dump_spec: SpecProducer, no_cache: bool) -> str | None:
+def _produce_and_cache_spec(project: Path, dump_spec: Callable[[Path], str], no_cache: bool) -> str | None:
     print(f"Producing OpenAPI spec for project: {project}")
 
     openapi_json = json.loads(dump_spec(project))
