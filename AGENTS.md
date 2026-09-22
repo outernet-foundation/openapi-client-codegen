@@ -2,7 +2,7 @@
 
 ## What this is
 
-`openapi-client-codegen` wraps [OpenAPI Generator](https://openapi-generator.tech/) to turn an OpenAPI schema into typed client packages — a Python (`httpx`) client and a Unity-consumable C# (`httpclient`) client. It owns every step that is generic across consumers: downgrading 3.1→3.0, authoring and patching the C# templates, running the generator, and writing the Unity package metadata. The caller owns what is inherently project-specific: **producing the OpenAPI spec** (however its app exposes one), which projects map to which clients, the package-name policy, and the output paths.
+`openapi-client-codegen` wraps [OpenAPI Generator](https://openapi-generator.tech/) to turn an OpenAPI schema into typed client packages — a Python (`httpx`) client and a Unity-consumable C# (`httpclient`) client. It owns every step that is generic across consumers: the project orchestration loop, downgrading 3.1→3.0, the committed-spec unchanged skip, authoring and patching the C# templates, running the generator, and writing the Unity package metadata. The caller owns what is inherently project-specific: **producing the OpenAPI spec** (injected as a required strategy — any callable from project directory to raw spec JSON; the org's uv convention ships as `dump_openapi_spec`), the project→client mapping, the naming root, the npm scope, license, repository URL, and the generated output root.
 
 The package is `openapi_client_codegen` (src-layout under `src/openapi_client_codegen/`), renamed from `openapi-clientgen` before the first publish (operator, 2026-09-20 — no artifact carries the old name). Its Python dependencies are `bashrun` (the guardrailed subprocess wrapper) and `typer` (the thin CLI), both from PyPI — git-source pins only in scratch branches testing unreleased changes. At **runtime** it also needs **Java (JDK 11+)** and **`uvx`** on PATH — the generator itself runs as `uvx --from 'openapi-generator-cli[jdk4py]==<pin>' ...`.
 
@@ -17,12 +17,16 @@ Publishing rides `ci.yml`'s `publish` job on every push to `main` (gated on the 
 | Symbol | Role |
 |---|---|
 | `downgrade_openapi_3_1_to_3_0(schema)` | In-place 3.1.0→3.0.3 fixup (openapi-generator rejects 3.1). Pure function. |
+| `generate_projects(projects, root_name, generated_root, dump_spec, npm_scope=None, license_spdx=None, repository_url=None, project=None, client=None, no_cache=False, root=Path())` | The project orchestrator: per mapping entry (`{project path: [generators]}`), produce the spec via the injected `dump_spec` strategy, downgrade it, write `<project>/openapi.json` unless byte-identical to the committed spec (`no_cache` forces through), and `generate_client` per listed generator into `<generated_root>/<generator>/<names.base>`. `project` / `client` restrict the run to one entry; `root` is what project paths resolve against. |
+| `SpecProducer` | Type alias `Callable[[Path], str]` — project directory in, raw OpenAPI JSON string out. The strategy owns however the source project exposes its spec. |
+| `dump_openapi_spec(project)` | The org strategy: `uv run --project . python -m src.dump_openapi` with `CODEGEN=1` gating heavy imports (per-call env overlay). Shipped as the exemplar — `dump_spec` is required, so every consumer names its strategy explicitly. |
+| `CommandSpecProducer(command)` | Callable class wrapping any shell command that prints the spec to stdout, run with the project directory as cwd; the CLI `--spec-command` bridge. |
 | `regenerate_templates(target_dir, extra_patches_dir=None)` | Author the C# templates into `target_dir/csharp` and apply the shipped (then optional extra) patches. |
 | `generate_client(spec, generator, output_dir, names, templates_dir=None, extra_references=None, npm_scope=None, license_spdx=None, repository_url=None)` | Run the generator for one `(spec, generator)` and sync the result into `output_dir`. `templates_dir` is required for `csharp`. For csharp, `npm_scope` composes the UPM identity `{scope}.{base-minus-dashes}` (e.g. `org.outernet.placeframe.apiclient`); unset falls back to the legacy `org.nuget.{camel-lower}` identity. `license_spdx` / `repository_url` populate the manifest's `license` / `repository` fields when given. |
 | `write_unity_package_metadata(package_dir, package_name, extra_references=None, npm_name=None, license_spdx=None, repository_url=None)` | Write `package.json` / `.asmdef` / `csc.rsp` / `Directory.Build.props`. Called by `generate_client` for csharp. |
 | `DefaultNamingPolicy(root_name)` / `ClientNaming` / `NamingPolicy` | Package-name derivation. `DefaultNamingPolicy("placeframe")("docker/api")` → base `api-client`, dashed `placeframe-api-client`, underscored `placeframe_api_client`, camel `PlaceframeApiClient`. |
 
-A consumer orchestrates: `regenerate_templates(tmp)` once, then per `(project, client)` produce the spec, `downgrade` it, and call `generate_client`. The generator version pin and the shipped configs/patches/ignore-file live in `src/openapi_client_codegen/_data/` (paths in `_data.py`).
+`generate_projects` orchestrates the whole run — `regenerate_templates` once, then per project: produce (via the injected strategy) → downgrade → committed-spec skip → per-client generate. Consumers hand it their parsed mapping, their spec-production strategy, and their identity parameters. The generator version pin and the shipped configs/patches/ignore-file live in `src/openapi_client_codegen/_data/` (paths in `_data.py`).
 
 ## Constraints
 
@@ -34,7 +38,7 @@ To author a new patch: author the raw templates (`openapi-generator-cli author t
 
 ### Generator env vars are passed per-call, never set at module level
 
-`JAVA_OPTS=-Dlog.level=warn` (quiets the generator) is passed as `bash(..., env={"JAVA_OPTS": "-Dlog.level=warn"})` on the two `openapi-generator-cli` calls that need it, so it reaches only those child processes and never touches this process's `os.environ`. `bashrun`'s `env=` overlays the inherited environment for that one child (see its AGENTS.md), which is the whole point — the alternative, mutating the global `os.environ`, leaks the var into every later subprocess. This covers only the generator this package runs itself; a consumer's spec-production step owns its own environment (e.g. any import-gating flag its services read).
+`JAVA_OPTS=-Dlog.level=warn` (quiets the generator) is passed as `bash(..., env={"JAVA_OPTS": "-Dlog.level=warn"})` on the two `openapi-generator-cli` calls that need it, so it reaches only those child processes and never touches this process's `os.environ`. `bashrun`'s `env=` overlays the inherited environment for that one child (see its AGENTS.md), which is the whole point — the alternative, mutating the global `os.environ`, leaks the var into every later subprocess. This covers only the generator this package runs itself. The shipped `dump_openapi_spec` strategy follows the same rule: `CODEGEN=1` (which gates a service's heavy imports so the app imports cleanly for the dump) rides bashrun's per-call env overlay and never touches this process's `os.environ`.
 
 ### The Unity reference set is coupled to the patched templates
 
@@ -48,7 +52,7 @@ The generated `.csproj` stays inside the UPM package because it is the `dotnet p
 
 ### What the consumer owns
 
-The project→clients mapping, the naming policy, and the output paths are the consumer's. This package ships `DefaultNamingPolicy` as a convenience but defines no schema for the mapping file — the consumer iterates its own config and calls the API per entry. `NamingPolicy` is a `Protocol`; a consumer can supply any callable `(project: str) -> ClientNaming`.
+The spec-production strategy (`dump_spec`, required — the package is consumable by projects that use no Python, no uv, or no dump entry point at all; the org's `dump_openapi_spec` ships beside it, and a project whose spec is a committed file needs only a file read), the project→clients mapping (in whatever config shape it likes — the verb takes the parsed mapping, not a file path), the naming root, the npm scope, license, repository URL, and the generated output root. The orchestrator iterates the mapping itself and fixes `DefaultNamingPolicy`; a consumer needing a different policy calls the per-client API directly — `NamingPolicy` is a `Protocol`, any callable `(project: str) -> ClientNaming` works there.
 
 ## See also
 

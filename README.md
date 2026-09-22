@@ -2,7 +2,7 @@
 
 Generate typed API clients from an OpenAPI schema. `openapi-client-codegen` wraps [OpenAPI Generator](https://openapi-generator.tech/): it downgrades OpenAPI 3.1→3.0 (the generator only accepts 3.0), authors and patches the C# templates, runs the generator, and writes Unity package metadata. It produces a Python (`httpx`) client and a Unity-consumable C# (`httpclient`) client.
 
-The generic steps live here; the caller supplies the OpenAPI spec, the project→client mapping, the package-name policy, and the output paths. See [`AGENTS.md`](./AGENTS.md) for the API surface, the lib-owns/consumer-owns boundary, and the patch mechanism.
+The generic steps live here; the caller supplies the spec-production strategy (any callable from project directory to raw spec JSON — the org's uv convention ships as `dump_openapi_spec`), the project→client mapping, the naming root, the npm scope, license, repository URL, and the output root. See [`AGENTS.md`](./AGENTS.md) for the API surface, the lib-owns/consumer-owns boundary, and the patch mechanism.
 
 ## Requirements
 
@@ -11,7 +11,7 @@ The generic steps live here; the caller supplies the OpenAPI spec, the project�
 
 ## CLI
 
-A thin CLI exposes the OpenAPI 3.1→3.0 downgrade and single-client generation:
+A thin CLI exposes the OpenAPI 3.1→3.0 downgrade, single-client generation, and the multi-project orchestrator:
 
 ```bash
 uv run openapi-client-codegen downgrade path/to/openapi.json            # 3.1→3.0 in place
@@ -21,36 +21,37 @@ uv run openapi-client-codegen generate path/to/openapi.json generated/csharp/api
   --root-name myproject --project services/api \
   --npm-scope org.example.myproject --license-spdx Apache-2.0 \
   --repository-url https://github.com/org/repo.git
+
+uv run openapi-client-codegen generate-projects clients.json \
+  --spec-command 'uv run --project . python -m src.dump_openapi' \
+  --root-name myproject --generated-root generated \
+  --npm-scope org.example.myproject --license-spdx Apache-2.0 \
+  --repository-url https://github.com/org/repo.git
 ```
 
-Client generation itself is driven from Python (it needs the consumer's project map, naming policy, and output paths):
+`clients.json` maps each project path to its client generators (`{"services/api": ["python", "csharp"]}`). `--spec-command` names the strategy: a shell command that prints the project's raw OpenAPI JSON to stdout, run with the project directory as cwd (env prefixes like `CODEGEN=1 …` inline directly). The orchestrator downgrades each produced spec, skips generation when the committed `<project>/openapi.json` is byte-identical (`--no-cache` forces through), and syncs each client under `<generated-root>/<generator>/<base-name>`.
+
+The same surface is the library API, for in-process consumption from a consumer's own command — `dump_spec` is required, so every consumer names its strategy explicitly:
 
 ```python
 import json
-import tempfile
 from pathlib import Path
 
-from openapi_client_codegen import (
-    DefaultNamingPolicy,
-    downgrade_openapi_3_1_to_3_0,
-    generate_client,
-    regenerate_templates,
-)
+from openapi_client_codegen import dump_openapi_spec, generate_projects
 
-naming = DefaultNamingPolicy("myproject")
-templates_dir = Path(tempfile.mkdtemp())
-regenerate_templates(templates_dir)
-
-# Produce the raw OpenAPI JSON however your app exposes it, then downgrade it.
-schema = json.loads(my_openapi_spec_json())
-downgrade_openapi_3_1_to_3_0(schema)
-spec = json.dumps(schema, indent=2)
-
-generate_client(spec, "python", Path("generated/python/api-client"), naming("services/api"))
-generate_client(
-    spec, "csharp", Path("generated/csharp/api-client"), naming("services/api"), templates_dir=templates_dir
+projects = json.loads(Path("clients.json").read_text(encoding="utf-8"))
+generate_projects(
+    projects,
+    root_name="myproject",
+    generated_root=Path("generated"),
+    dump_spec=dump_openapi_spec,
+    npm_scope="org.example.myproject",
+    license_spdx="Apache-2.0",
+    repository_url="https://github.com/org/repo.git",
 )
 ```
+
+A non-uv project passes its own callable instead — e.g. `dump_spec=lambda project: bash_output("dotnet run -- dump-openapi", cwd=project)`, or a file read for a project whose spec is committed rather than dumped.
 
 ## Consuming from another repo
 
