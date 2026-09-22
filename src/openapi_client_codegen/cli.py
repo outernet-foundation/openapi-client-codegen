@@ -5,6 +5,7 @@ from typing import Annotated
 
 from typer import Argument, Option, Typer
 
+from . import orchestrator
 from .client import generate_client
 from .downgrade import downgrade_openapi_3_1_to_3_0
 from .naming import DefaultNamingPolicy
@@ -51,3 +52,40 @@ def generate(
             license_spdx=license_spdx,
             repository_url=repository_url,
         )
+
+
+@app.command()
+def generate_projects(
+    config: Annotated[Path, Option(help="JSON file mapping project paths to client generator lists")],
+    root_name: Annotated[str, Option(help="Root name handed to DefaultNamingPolicy")],
+    generated_root: Annotated[Path, Option(help="Root directory the generated clients sync into")],
+    spec_command: Annotated[
+        str,
+        Option(
+            help="Shell command printing the project's raw OpenAPI JSON to stdout; runs with the project directory as cwd"
+        ),
+    ],
+    npm_scope: Annotated[str | None, Option(help="npm scope composing the UPM package identity")] = None,
+    license_spdx: Annotated[str | None, Option(help="SPDX license id written to package.json")] = None,
+    repository_url: Annotated[str | None, Option(help="git repository URL written to package.json")] = None,
+    project: Annotated[str | None, Option(help="Generate only this project, as keyed in the config")] = None,
+    client: Annotated[str | None, Option(help="Generate only this client generator")] = None,
+    no_cache: Annotated[
+        bool, Option("--no-cache", help="Regenerate even when the committed spec is unchanged")
+    ] = False,
+    root: Annotated[Path, Option(help="Repository root the project paths resolve against")] = Path(),
+) -> None:
+    projects: dict[str, list[str]] = json.loads(config.read_text(encoding="utf-8"))
+    orchestrator.generate_projects(
+        projects,
+        root_name=root_name,
+        generated_root=generated_root,
+        dump_spec=orchestrator.CommandSpecProducer(spec_command),
+        npm_scope=npm_scope,
+        license_spdx=license_spdx,
+        repository_url=repository_url,
+        project=project,
+        client=client,
+        no_cache=no_cache,
+        root=root,
+    )
