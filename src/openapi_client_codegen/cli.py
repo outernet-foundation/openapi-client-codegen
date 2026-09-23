@@ -1,73 +1,19 @@
-import json
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from typing import Annotated
 
-from typer import Argument, Option, Typer
+from pydantic import ValidationError
+from typer import BadParameter, Option, Typer
 
-from .client import generate_client
-from .downgrade import downgrade_openapi_3_1_to_3_0
-from .naming import DefaultNamingPolicy
-from .orchestrator import SpecProducer, generate_projects
-from .templates import regenerate_templates
+from .orchestrator import ProjectsConfig, generate_projects
 
 app = Typer(pretty_exceptions_show_locals=False)
 
 
 @app.command()
-def downgrade(
-    input_file: Annotated[Path, Argument(help="OpenAPI 3.1 JSON to downgrade to 3.0.3")],
-    output_file: Annotated[Path | None, Argument(help="Write here instead of overwriting input_file")] = None,
-) -> None:
-    schema = json.loads(input_file.read_text(encoding="utf-8"))
-    downgrade_openapi_3_1_to_3_0(schema)
-    destination = output_file if output_file is not None else input_file
-    destination.write_text(json.dumps(schema, indent=2), encoding="utf-8")
-
-
-@app.command()
-def generate(
-    spec_file: Annotated[Path, Argument(help="OpenAPI 3.0 spec JSON to generate from")],
-    output_dir: Annotated[Path, Argument(help="Directory to sync the generated client into")],
-    root_name: Annotated[str, Option(help="Root name handed to DefaultNamingPolicy")],
-    project: Annotated[str, Option(help="Project path; its last segment names the client")],
-    generator: Annotated[str, Option(help="openapi-generator generator name")] = "csharp",
-    npm_scope: Annotated[str | None, Option(help="npm scope composing the UPM package identity")] = None,
-    license_spdx: Annotated[str | None, Option(help="SPDX license id written to package.json")] = None,
-    repository_url: Annotated[str | None, Option(help="git repository URL written to package.json")] = None,
-) -> None:
-    with TemporaryDirectory() as templates_directory_string:
-        templates_directory = Path(templates_directory_string)
-        templates_dir = templates_directory if generator == "csharp" else None
-        if templates_dir is not None:
-            regenerate_templates(templates_dir)
-
-        generate_client(
-            spec_file.read_text(encoding="utf-8"),
-            generator,
-            output_dir,
-            DefaultNamingPolicy(root_name)(project),
-            templates_dir=templates_dir,
-            npm_scope=npm_scope,
-            license_spdx=license_spdx,
-            repository_url=repository_url,
-        )
-
-
-@app.command("generate-projects")
 def generate_projects_command(
-    config: Annotated[Path, Option(help="JSON file mapping project paths to client generator lists")],
-    root_name: Annotated[str, Option(help="Root name handed to DefaultNamingPolicy")],
-    generated_root: Annotated[Path, Option(help="Root directory the generated clients sync into")],
-    spec_command: Annotated[
-        str,
-        Option(
-            help="Shell command printing the project's raw OpenAPI JSON to stdout; runs with the project directory as cwd"
-        ),
+    config: Annotated[
+        Path, Option(help="JSON config carrying the projects mapping, the client identity, and the spec command")
     ],
-    npm_scope: Annotated[str | None, Option(help="npm scope composing the UPM package identity")] = None,
-    license_spdx: Annotated[str | None, Option(help="SPDX license id written to package.json")] = None,
-    repository_url: Annotated[str | None, Option(help="git repository URL written to package.json")] = None,
     project: Annotated[str | None, Option(help="Generate only this project, as keyed in the config")] = None,
     client: Annotated[str | None, Option(help="Generate only this client generator")] = None,
     no_cache: Annotated[
@@ -75,17 +21,9 @@ def generate_projects_command(
     ] = False,
     root: Annotated[Path, Option(help="Repository root the project paths resolve against")] = Path(),
 ) -> None:
-    projects: dict[str, list[str]] = json.loads(config.read_text(encoding="utf-8"))
-    generate_projects(
-        projects,
-        root_name=root_name,
-        generated_root=generated_root,
-        dump_spec=SpecProducer(spec_command),
-        npm_scope=npm_scope,
-        license_spdx=license_spdx,
-        repository_url=repository_url,
-        project=project,
-        client=client,
-        no_cache=no_cache,
-        root=root,
-    )
+    try:
+        settings = ProjectsConfig.model_validate_json(config.read_text(encoding="utf-8"))
+    except ValidationError as error:
+        raise BadParameter(str(error)) from error
+
+    generate_projects(settings, project=project, client=client, no_cache=no_cache, root=root)

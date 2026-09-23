@@ -1,14 +1,19 @@
+from __future__ import annotations
+
 import json
 from os import walk
 from pathlib import Path
 from shutil import copytree
 from tempfile import NamedTemporaryFile, TemporaryDirectory
+from typing import TYPE_CHECKING
 
 from bashrun.bash import bash
 
 from .resources import CONFIGS_DIR, IGNORE_FILE, OPENAPI_GENERATOR_CLI_VERSION
-from .naming import ClientNaming
 from .unity import write_unity_package_metadata
+
+if TYPE_CHECKING:
+    from .orchestrator import ClientNaming
 
 _HTTP_METHODS = ("get", "put", "post", "delete", "patch", "options", "head", "trace")
 

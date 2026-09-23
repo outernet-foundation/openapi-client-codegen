@@ -2,46 +2,63 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from bashrun.bash import bash_output
+from pydantic import BaseModel, ConfigDict
 
 from .client import generate_client
 from .downgrade import downgrade_openapi_3_1_to_3_0
-from .naming import DefaultNamingPolicy
 from .templates import regenerate_templates
 
 
+class ProjectsConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    projects: dict[str, list[str]]
+    root_name: str
+    generated_root: Path
+    spec_command: str
+    spec_env: dict[str, str] | None = None
+    npm_scope: str | None = None
+    license_spdx: str | None = None
+    repository_url: str | None = None
+
+
+@dataclass(frozen=True)
+class ClientNaming:
+    base: str
+    dashed: str
+    underscored: str
+    camel: str
+
+
 class SpecProducer:
-    def __init__(self, command: str) -> None:
+    def __init__(self, command: str, env: dict[str, str] | None = None) -> None:
         self.command = command
+        self.env = env
 
     def __call__(self, project: Path) -> str:
-        return bash_output(self.command, cwd=project)
+        return bash_output(self.command, cwd=project, env=self.env)
 
 
 def generate_projects(
-    projects: dict[str, list[str]],
-    root_name: str,
-    generated_root: Path,
-    dump_spec: Callable[[Path], str],
-    npm_scope: str | None = None,
-    license_spdx: str | None = None,
-    repository_url: str | None = None,
+    config: ProjectsConfig,
     project: str | None = None,
     client: str | None = None,
     no_cache: bool = False,
     root: Path = Path(),
 ) -> None:
     root = root.resolve()
-    naming = DefaultNamingPolicy(root_name)
+    dump_spec = SpecProducer(config.spec_command, env=config.spec_env)
 
     with TemporaryDirectory() as templates_directory_string:
         templates_directory = Path(templates_directory_string)
         regenerate_templates(templates_directory)
 
-        for project_name, clients in projects.items():
+        for project_name, clients in config.projects.items():
             if project is not None and project != project_name:
                 continue
 
@@ -50,7 +67,14 @@ def generate_projects(
             if openapi_spec is None:
                 continue
 
-            names = naming(project_name)
+            base = f"{project_name.rsplit('/', maxsplit=1)[-1]}-client"
+            dashed = f"{config.root_name}-{base}"
+            names = ClientNaming(
+                base=base,
+                dashed=dashed,
+                underscored=dashed.replace("-", "_"),
+                camel=f"{config.root_name.capitalize()}{''.join(part.capitalize() for part in base.split('-'))}",
+            )
 
             for client_name in clients:
                 if client is not None and client_name != client:
@@ -59,19 +83,13 @@ def generate_projects(
                 generate_client(
                     openapi_spec,
                     client_name,
-                    generated_root / client_name / names.base,
+                    config.generated_root / client_name / names.base,
                     names,
                     templates_dir=templates_directory,
-                    npm_scope=npm_scope,
-                    license_spdx=license_spdx,
-                    repository_url=repository_url,
+                    npm_scope=config.npm_scope,
+                    license_spdx=config.license_spdx,
+                    repository_url=config.repository_url,
                 )
-
-
-def dump_openapi_spec(project: Path) -> str:
-    # CODEGEN=1 gates a service package's heavy imports so the app imports cleanly for the spec
-    # dump; it reaches the child through bashrun's per-call env overlay.
-    return bash_output("uv run --project . python -m src.dump_openapi", cwd=project, env={"CODEGEN": "1"})
 
 
 def _produce_and_cache_spec(project: Path, dump_spec: Callable[[Path], str], no_cache: bool) -> str | None:

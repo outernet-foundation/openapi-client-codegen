@@ -7,8 +7,7 @@ import pytest
 
 from openapi_client_codegen import orchestrator
 from openapi_client_codegen.downgrade import JsonDict, downgrade_openapi_3_1_to_3_0
-from openapi_client_codegen.naming import ClientNaming
-from openapi_client_codegen.orchestrator import SpecProducer, dump_openapi_spec, generate_projects
+from openapi_client_codegen.orchestrator import ClientNaming, ProjectsConfig, SpecProducer, generate_projects
 
 RAW_SCHEMA: JsonDict = {"openapi": "3.1.0", "info": {"title": "demo", "version": "0.0.0"}, "paths": {}}
 
@@ -16,12 +15,7 @@ RAW_SCHEMA: JsonDict = {"openapi": "3.1.0", "info": {"title": "demo", "version":
 class Recorder:
     def __init__(self) -> None:
         self.generated: list[tuple[str, Path, ClientNaming]] = []
-        self.dumps: list[Path | None] = []
         self.commands: list[tuple[str, Path | None, dict[str, str] | None]] = []
-
-    def fake_dump_spec(self, project: Path) -> str:
-        self.dumps.append(project)
-        return json.dumps(RAW_SCHEMA)
 
     def fake_bash_output(self, command: str, *, cwd: Path | None = None, env: dict[str, str] | None = None) -> str:
         self.commands.append((command, cwd, env))
@@ -60,6 +54,17 @@ def downgraded_spec() -> str:
     return json.dumps(schema, indent=2)
 
 
+def make_config(tmp_path: Path, projects: dict[str, list[str]], **overrides: object) -> ProjectsConfig:
+    settings: dict[str, object] = {
+        "projects": projects,
+        "root_name": "placeframe",
+        "generated_root": tmp_path / "generated",
+        "spec_command": "dump-openapi",
+    }
+    settings.update(overrides)
+    return ProjectsConfig.model_validate(settings)
+
+
 def make_project(root: Path, name: str) -> Path:
     project = root / name
     project.mkdir(parents=True)
@@ -69,13 +74,7 @@ def make_project(root: Path, name: str) -> Path:
 def test_generates_all_clients_and_writes_downgraded_spec(tmp_path: Path, recorder: Recorder) -> None:
     make_project(tmp_path, "docker/api")
 
-    generate_projects(
-        {"docker/api": ["python", "csharp"]},
-        "placeframe",
-        tmp_path / "generated",
-        recorder.fake_dump_spec,
-        root=tmp_path,
-    )
+    generate_projects(make_config(tmp_path, {"docker/api": ["python", "csharp"]}), root=tmp_path)
 
     assert [(generator, output_dir.name) for generator, output_dir, _ in recorder.generated] == [
         ("python", "api-client"),
@@ -87,16 +86,14 @@ def test_generates_all_clients_and_writes_downgraded_spec(tmp_path: Path, record
     assert written == downgraded_spec()
     assert json.loads(written)["openapi"] == "3.0.3"
 
-    assert recorder.dumps == [tmp_path.resolve() / "docker" / "api"]
+    assert recorder.commands == [("dump-openapi", tmp_path.resolve() / "docker" / "api", None)]
 
 
 def test_skips_generation_when_committed_spec_unchanged(tmp_path: Path, recorder: Recorder) -> None:
     project = make_project(tmp_path, "docker/api")
     (project / "openapi.json").write_text(downgraded_spec(), encoding="utf-8")
 
-    generate_projects(
-        {"docker/api": ["python"]}, "placeframe", tmp_path / "generated", recorder.fake_dump_spec, root=tmp_path
-    )
+    generate_projects(make_config(tmp_path, {"docker/api": ["python"]}), root=tmp_path)
 
     assert recorder.generated == []
 
@@ -105,14 +102,7 @@ def test_no_cache_forces_generation_despite_unchanged_spec(tmp_path: Path, recor
     project = make_project(tmp_path, "docker/api")
     (project / "openapi.json").write_text(downgraded_spec(), encoding="utf-8")
 
-    generate_projects(
-        {"docker/api": ["python"]},
-        "placeframe",
-        tmp_path / "generated",
-        recorder.fake_dump_spec,
-        no_cache=True,
-        root=tmp_path,
-    )
+    generate_projects(make_config(tmp_path, {"docker/api": ["python"]}), no_cache=True, root=tmp_path)
 
     assert len(recorder.generated) == 1
 
@@ -122,10 +112,7 @@ def test_project_and_client_filters(tmp_path: Path, recorder: Recorder) -> None:
     make_project(tmp_path, "docker/localizer")
 
     generate_projects(
-        {"docker/api": ["python", "csharp"], "docker/localizer": ["python"]},
-        "placeframe",
-        tmp_path / "generated",
-        recorder.fake_dump_spec,
+        make_config(tmp_path, {"docker/api": ["python", "csharp"], "docker/localizer": ["python"]}),
         project="docker/api",
         client="csharp",
         root=tmp_path,
@@ -138,14 +125,24 @@ def test_project_and_client_filters(tmp_path: Path, recorder: Recorder) -> None:
     assert names.dashed == "placeframe-api-client"
 
 
-def test_dump_openapi_spec_pins_the_org_convention(recorder: Recorder) -> None:
-    dump_openapi_spec(Path("docker/api"))
+def test_spec_env_rides_the_spec_command(tmp_path: Path, recorder: Recorder) -> None:
+    make_project(tmp_path, "docker/api")
 
-    assert len(recorder.commands) == 1
-    command, cwd, env = recorder.commands[0]
-    assert command == "uv run --project . python -m src.dump_openapi"
-    assert cwd == Path("docker/api")
-    assert env == {"CODEGEN": "1"}
+    generate_projects(make_config(tmp_path, {"docker/api": ["python"]}, spec_env={"CODEGEN": "1"}), root=tmp_path)
+
+    assert recorder.commands == [("dump-openapi", tmp_path.resolve() / "docker" / "api", {"CODEGEN": "1"})]
+
+
+def test_naming_derives_from_root_and_last_segment(tmp_path: Path, recorder: Recorder) -> None:
+    make_project(tmp_path, "docker/lease-server")
+
+    generate_projects(make_config(tmp_path, {"docker/lease-server": ["python"]}), root=tmp_path)
+
+    names = recorder.generated[0][2]
+    assert names.base == "lease-server-client"
+    assert names.dashed == "placeframe-lease-server-client"
+    assert names.underscored == "placeframe_lease_server_client"
+    assert names.camel == "PlaceframeLeaseServerClient"
 
 
 def test_command_spec_producer_runs_with_project_cwd(recorder: Recorder) -> None:
@@ -155,3 +152,15 @@ def test_command_spec_producer_runs_with_project_cwd(recorder: Recorder) -> None
 
     assert json.loads(produced) == RAW_SCHEMA
     assert recorder.commands == [("dotnet run -- dump-openapi", Path("services/api"), None)]
+
+
+def test_spec_producer_overlays_env(recorder: Recorder) -> None:
+    producer: Callable[[Path], str] = SpecProducer(
+        "uv run --project . python -m src.dump_openapi", env={"CODEGEN": "1"}
+    )
+
+    producer(Path("docker/api"))
+
+    assert recorder.commands == [
+        ("uv run --project . python -m src.dump_openapi", Path("docker/api"), {"CODEGEN": "1"})
+    ]
