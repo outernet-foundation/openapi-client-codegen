@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from os import walk
 from pathlib import Path
 from shutil import copytree
@@ -117,4 +118,4 @@ def generate_client(
         copytree(temporary_directory, output_dir, dirs_exist_ok=True)
 
     if generator == "python":
-        bash(f"uv pip install {output_dir.resolve().as_posix()}")
+        bash(f"uv pip install --python {sys.executable} {output_dir.resolve().as_posix()}")
