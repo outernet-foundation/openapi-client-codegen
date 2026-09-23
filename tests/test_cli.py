@@ -4,9 +4,9 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from openapi_client_codegen import cli
+from openapi_client_codegen import cli, orchestrator
 from openapi_client_codegen.cli import app
-from openapi_client_codegen.orchestrator import ProjectsConfig
+from openapi_client_codegen.orchestrator import ClientNaming
 
 runner = CliRunner()
 
@@ -24,16 +24,35 @@ FULL_SETTINGS: dict[str, object] = {
 
 class Recorder:
     def __init__(self) -> None:
-        self.calls: list[dict[str, object]] = []
+        self.generated: list[tuple[str, Path]] = []
 
-    def fake_generate_projects(self, config: ProjectsConfig, **kwargs: object) -> None:
-        self.calls.append({"config": config, **kwargs})
+    def fake_bash_output(self, command: str, *, cwd: Path | None = None, env: dict[str, str] | None = None) -> str:
+        return json.dumps({"openapi": "3.1.0", "info": {"title": "demo", "version": "0.0.0"}, "paths": {}})
+
+    def fake_regenerate_templates(self, target_dir: Path, extra_patches_dir: Path | None = None) -> None:
+        pass
+
+    def fake_generate_client(
+        self,
+        spec: str,
+        generator: str,
+        output_dir: Path,
+        names: ClientNaming,
+        templates_dir: Path | None = None,
+        extra_references: list[str] | None = None,
+        npm_scope: str | None = None,
+        license_spdx: str | None = None,
+        repository_url: str | None = None,
+    ) -> None:
+        self.generated.append((generator, output_dir))
 
 
 @pytest.fixture
 def recorder(monkeypatch: pytest.MonkeyPatch) -> Recorder:
     recorder = Recorder()
-    monkeypatch.setattr(cli, "generate_projects", recorder.fake_generate_projects)
+    monkeypatch.setattr(orchestrator, "bash_output", recorder.fake_bash_output)
+    monkeypatch.setattr(cli, "regenerate_templates", recorder.fake_regenerate_templates)
+    monkeypatch.setattr(cli, "generate_client", recorder.fake_generate_client)
     return recorder
 
 
@@ -43,29 +62,17 @@ def write_config(directory: Path, settings: dict[str, object]) -> Path:
     return config
 
 
-def test_single_command_app_passes_the_validated_model(tmp_path: Path, recorder: Recorder) -> None:
+def test_filter_flags_restrict_generation(tmp_path: Path, recorder: Recorder) -> None:
     config = write_config(tmp_path, FULL_SETTINGS)
-
-    result = runner.invoke(app, ["--config", str(config)])
-
-    assert result.exit_code == 0
-    call = recorder.calls[0]
-    assert call["config"] == ProjectsConfig.model_validate(FULL_SETTINGS)
-
-
-def test_filter_flags_pass_through(tmp_path: Path, recorder: Recorder) -> None:
-    config = write_config(tmp_path, FULL_SETTINGS)
+    (tmp_path / "docker" / "api").mkdir(parents=True)
 
     result = runner.invoke(
         app,
-        ["--config", str(config), "--project", "docker/api", "--client", "csharp", "--no-cache"],
+        ["--config", str(config), "--root", str(tmp_path), "--project", "docker/api", "--client", "csharp"],
     )
 
     assert result.exit_code == 0
-    call = recorder.calls[0]
-    assert call["project"] == "docker/api"
-    assert call["client"] == "csharp"
-    assert call["no_cache"] is True
+    assert recorder.generated == [("csharp", Path("packages/generated") / "csharp" / "api-client")]
 
 
 def test_unknown_config_key_fails_loudly(tmp_path: Path, recorder: Recorder) -> None:
@@ -74,8 +81,8 @@ def test_unknown_config_key_fails_loudly(tmp_path: Path, recorder: Recorder) -> 
     result = runner.invoke(app, ["--config", str(config)])
 
     assert result.exit_code != 0
-    assert "rot_name" in result.output
-    assert recorder.calls == []
+    assert "rot_name" in str(result.exception)
+    assert recorder.generated == []
 
 
 def test_missing_projects_mapping_fails(tmp_path: Path, recorder: Recorder) -> None:
@@ -84,8 +91,8 @@ def test_missing_projects_mapping_fails(tmp_path: Path, recorder: Recorder) -> N
     result = runner.invoke(app, ["--config", str(config)])
 
     assert result.exit_code != 0
-    assert "projects" in result.output
-    assert recorder.calls == []
+    assert "projects" in str(result.exception)
+    assert recorder.generated == []
 
 
 def test_missing_required_field_fails(tmp_path: Path, recorder: Recorder) -> None:
@@ -96,5 +103,5 @@ def test_missing_required_field_fails(tmp_path: Path, recorder: Recorder) -> Non
     result = runner.invoke(app, ["--config", str(config)])
 
     assert result.exit_code != 0
-    assert "spec_command" in result.output
-    assert recorder.calls == []
+    assert "spec_command" in str(result.exception)
+    assert recorder.generated == []
