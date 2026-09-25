@@ -7,6 +7,5 @@
       "feeds": { "pypi": "openapi-client-codegen" }
     }
   ],
-  "ci_workflow": "ci.yml",
-  "mirror_prefix": "ghcr.io/outernet-foundation/mirror"
+  "ci_workflow": "ci.yml"
 }
