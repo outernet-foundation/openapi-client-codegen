@@ -4,7 +4,9 @@
       "name": "openapi-client-codegen",
       "path": ".",
       "major_minor": "0.1",
-      "feeds": { "pypi": "openapi-client-codegen" }
+      "registries": {
+        "pypi": "openapi-client-codegen"
+      }
     }
   ],
   "ci_workflow": "ci.yml"
