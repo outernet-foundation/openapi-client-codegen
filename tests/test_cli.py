@@ -20,6 +20,7 @@ FULL_SETTINGS: dict[str, object] = {
     "npm_scope": "org.example.placeframe",
     "license_spdx": "Apache-2.0",
     "repository_url": "https://github.com/org/repo.git",
+    "requires": ">=0.1",
 }
 
 

@@ -23,13 +23,13 @@ class ProjectsConfig(BaseModel):
     npm_scope: str | None = None
     license_spdx: str | None = None
     repository_url: str | None = None
-    requires: str | None = None
+    requires: str
 
     @field_validator("requires")
     @classmethod
-    def validate_requires(cls, value: str | None) -> str | None:
+    def validate_requires(cls, value: str) -> str:
         if not value:
-            return None
+            raise ValueError("requires must be a non-empty PEP 440 specifier; use '>=0.0' for no constraint")
         SpecifierSet(value)
         return value
 
@@ -53,8 +53,6 @@ class SpecProducer:
 
 def load_config(path: Path) -> ProjectsConfig:
     config = ProjectsConfig.model_validate(load_strict_yaml(path.read_text(encoding="utf-8")).data)
-    if config.requires is None:
-        return config
     installed = importlib.metadata.version("openapi-client-codegen")
     if installed == DEV_SENTINEL:
         return config

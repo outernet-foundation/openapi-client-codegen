@@ -23,11 +23,8 @@ def base_payload() -> dict[str, object]:
         "root_name": "placeframe",
         "generated_root": "packages/generated",
         "spec_command": "uv run --project . python -m src.dump_openapi",
+        "requires": ">=0.1",
     }
-
-
-def _version_must_not_be_queried(_name: str) -> str:
-    raise AssertionError("openapi-client-codegen version must not be queried when requires is absent")
 
 
 def _version_dev_sentinel(_name: str) -> str:
@@ -51,25 +48,23 @@ def test_load_config_parses_yaml(tmp_path: Path) -> None:
 
     assert config.projects == {"docker/api": ["python"]}
     assert config.root_name == "placeframe"
-    assert config.requires is None
+    assert config.requires == ">=0.1"
 
 
-def test_requires_omitted_does_not_query_version(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(importlib.metadata, "version", _version_must_not_be_queried)
+def test_requires_omitted_is_required(tmp_path: Path) -> None:
+    payload = base_payload()
+    del payload["requires"]
 
-    config = load_config(write_config(tmp_path, base_payload()))
+    with pytest.raises(ValidationError, match="requires"):
+        load_config(write_config(tmp_path, payload))
 
-    assert config.requires is None
 
-
-def test_requires_empty_string_is_treated_as_omitted(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(importlib.metadata, "version", _version_must_not_be_queried)
+def test_requires_empty_string_rejected(tmp_path: Path) -> None:
     payload = base_payload()
     payload["requires"] = ""
 
-    config = load_config(write_config(tmp_path, payload))
-
-    assert config.requires is None
+    with pytest.raises(ValidationError, match="requires"):
+        load_config(write_config(tmp_path, payload))
 
 
 def test_requires_dev_sentinel_skips_check(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

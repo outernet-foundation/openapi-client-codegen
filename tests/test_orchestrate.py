@@ -65,6 +65,7 @@ def invoke(tmp_path: Path, projects: dict[str, list[str]], *args: str) -> None:
         "root_name": "placeframe",
         "generated_root": str(tmp_path / "generated"),
         "spec_command": "dump-openapi",
+        "requires": ">=0.1",
     }
     config = tmp_path / "clients.yaml"
     config.write_text(yaml.safe_dump(settings, default_flow_style=False, sort_keys=False), encoding="utf-8")
@@ -144,6 +145,7 @@ def test_spec_env_rides_the_spec_command(tmp_path: Path, recorder: Recorder) -> 
         "generated_root": str(tmp_path / "generated"),
         "spec_command": "dump-openapi",
         "spec_env": {"CODEGEN": "1"},
+        "requires": ">=0.1",
     }
     config = tmp_path / "clients.yaml"
     config.write_text(yaml.safe_dump(settings, default_flow_style=False, sort_keys=False), encoding="utf-8")
