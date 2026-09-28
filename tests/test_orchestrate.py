@@ -4,6 +4,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+import yaml
 from typer.testing import CliRunner
 
 from openapi_client_codegen import cli, orchestrator
@@ -65,8 +66,8 @@ def invoke(tmp_path: Path, projects: dict[str, list[str]], *args: str) -> None:
         "generated_root": str(tmp_path / "generated"),
         "spec_command": "dump-openapi",
     }
-    config = tmp_path / "clients.json"
-    config.write_text(json.dumps(settings), encoding="utf-8")
+    config = tmp_path / "clients.yaml"
+    config.write_text(yaml.safe_dump(settings, default_flow_style=False, sort_keys=False), encoding="utf-8")
 
     result = runner.invoke(app, ["--config", str(config), "--root", str(tmp_path), *args])
     assert result.exit_code == 0
@@ -144,8 +145,8 @@ def test_spec_env_rides_the_spec_command(tmp_path: Path, recorder: Recorder) -> 
         "spec_command": "dump-openapi",
         "spec_env": {"CODEGEN": "1"},
     }
-    config = tmp_path / "clients.json"
-    config.write_text(json.dumps(settings), encoding="utf-8")
+    config = tmp_path / "clients.yaml"
+    config.write_text(yaml.safe_dump(settings, default_flow_style=False, sort_keys=False), encoding="utf-8")
     result = runner.invoke(app, ["--config", str(config), "--root", str(tmp_path)])
     assert result.exit_code == 0
 

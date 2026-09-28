@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
+import yaml
 from typer.testing import CliRunner
 
 from openapi_client_codegen import cli, orchestrator
@@ -57,8 +58,8 @@ def recorder(monkeypatch: pytest.MonkeyPatch) -> Recorder:
 
 
 def write_config(directory: Path, settings: dict[str, object]) -> Path:
-    config = directory / "clients.json"
-    config.write_text(json.dumps(settings), encoding="utf-8")
+    config = directory / "clients.yaml"
+    config.write_text(yaml.safe_dump(settings, default_flow_style=False, sort_keys=False), encoding="utf-8")
     return config
 
 
@@ -76,7 +77,7 @@ def test_filter_flags_restrict_generation(tmp_path: Path, recorder: Recorder) ->
 
 
 def test_unknown_config_key_fails_loudly(tmp_path: Path, recorder: Recorder) -> None:
-    config = write_config(tmp_path, {"projects": {}, "rot_name": "placeframe"})
+    config = write_config(tmp_path, {"projects": {"docker/api": ["python"]}, "rot_name": "placeframe"})
 
     result = runner.invoke(app, ["--config", str(config)])
 

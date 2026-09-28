@@ -7,7 +7,7 @@ from typer import Option, Typer
 
 from .client import generate_client
 from .downgrade import downgrade_openapi_3_1_to_3_0
-from .orchestrator import ClientNaming, ProjectsConfig, SpecProducer
+from .orchestrator import ClientNaming, SpecProducer, load_config
 from .templates import regenerate_templates
 
 app = Typer(pretty_exceptions_show_locals=False)
@@ -16,7 +16,7 @@ app = Typer(pretty_exceptions_show_locals=False)
 @app.command()
 def generate_projects_command(
     config: Annotated[
-        Path, Option(help="JSON config carrying the projects mapping, the client identity, and the spec command")
+        Path, Option(help="YAML config carrying the projects mapping, the client identity, and the spec command")
     ],
     project: Annotated[str | None, Option(help="Generate only this project, as keyed in the config")] = None,
     client: Annotated[str | None, Option(help="Generate only this client generator")] = None,
@@ -25,7 +25,7 @@ def generate_projects_command(
     ] = False,
     root: Annotated[Path, Option(help="Repository root the project paths resolve against")] = Path(),
 ) -> None:
-    settings = ProjectsConfig.model_validate_json(config.read_text(encoding="utf-8"))
+    settings = load_config(config)
     root = root.resolve()
     dump_spec = SpecProducer(settings.spec_command, env=settings.spec_env)
 
