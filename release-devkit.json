@@ -1,13 +1,10 @@
 {
-  "packages": [
-    {
-      "name": "openapi-client-codegen",
+  "packages": {
+    "openapi-client-codegen": {
       "path": ".",
       "major_minor": "0.1",
-      "registries": {
-        "pypi": "openapi-client-codegen"
-      }
+      "registries": { "pypi": "openapi-client-codegen" }
     }
-  ],
+  },
   "ci_workflow": "ci.yml"
 }
