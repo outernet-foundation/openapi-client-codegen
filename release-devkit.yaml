@@ -1,0 +1,8 @@
+requires: ">=0.1"
+ci_workflow: ci.yml
+packages:
+  openapi-client-codegen:
+    path: .
+    major_minor: "0.1"
+    registries:
+      pypi: openapi-client-codegen
