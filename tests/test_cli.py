@@ -27,6 +27,8 @@ FULL_SETTINGS: dict[str, object] = {
 class Recorder:
     def __init__(self) -> None:
         self.generated: list[tuple[str, Path]] = []
+        self.git_commands: list[str] = []
+        self.git_dirty = False
 
     def fake_bash_output(self, command: str, *, cwd: Path | None = None, env: dict[str, str] | None = None) -> str:
         return json.dumps({"openapi": "3.1.0", "info": {"title": "demo", "version": "0.0.0"}, "paths": {}})
@@ -48,6 +50,13 @@ class Recorder:
     ) -> None:
         self.generated.append((generator, output_dir))
 
+    def fake_git_status(self, command: str, *, cwd: Path | None = None, env: dict[str, str] | None = None) -> str:
+        self.git_commands.append(command)
+        return "M packages/generated/dummy\n" if self.git_dirty else ""
+
+    def fake_git_diff(self, command: str, *, cwd: Path | None = None, env: dict[str, str] | None = None) -> None:
+        self.git_commands.append(command)
+
 
 @pytest.fixture
 def recorder(monkeypatch: pytest.MonkeyPatch) -> Recorder:
@@ -55,6 +64,8 @@ def recorder(monkeypatch: pytest.MonkeyPatch) -> Recorder:
     monkeypatch.setattr(orchestrator, "bash_output", recorder.fake_bash_output)
     monkeypatch.setattr(cli, "regenerate_templates", recorder.fake_regenerate_templates)
     monkeypatch.setattr(cli, "generate_client", recorder.fake_generate_client)
+    monkeypatch.setattr(cli, "bash_output", recorder.fake_git_status)
+    monkeypatch.setattr(cli, "bash", recorder.fake_git_diff)
     return recorder
 
 
@@ -107,3 +118,28 @@ def test_missing_required_field_fails(tmp_path: Path, recorder: Recorder) -> Non
     assert result.exit_code != 0
     assert "spec_command" in str(result.exception)
     assert recorder.generated == []
+
+
+def test_check_forces_regen_and_passes_when_clean(tmp_path: Path, recorder: Recorder) -> None:
+    config = write_config(tmp_path, FULL_SETTINGS)
+    (tmp_path / "docker" / "api").mkdir(parents=True)
+
+    result = runner.invoke(app, ["--config", str(config), "--root", str(tmp_path), "--check"])
+
+    assert result.exit_code == 0
+    assert [generator for generator, _ in recorder.generated] == ["python", "csharp"]
+    assert recorder.git_commands == ["git status --porcelain -- docker/api/openapi.json packages/generated"]
+
+
+def test_check_fails_when_tree_stale(tmp_path: Path, recorder: Recorder) -> None:
+    config = write_config(tmp_path, FULL_SETTINGS)
+    (tmp_path / "docker" / "api").mkdir(parents=True)
+    recorder.git_dirty = True
+
+    result = runner.invoke(app, ["--config", str(config), "--root", str(tmp_path), "--check"])
+
+    assert result.exit_code != 0
+    assert recorder.git_commands == [
+        "git status --porcelain -- docker/api/openapi.json packages/generated",
+        "git diff -- docker/api/openapi.json packages/generated",
+    ]
