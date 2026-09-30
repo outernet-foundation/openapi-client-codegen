@@ -3,6 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Annotated
 
+from bashrun.bash import bash, bash_output
 from typer import Option, Typer
 
 from .client import generate_client
@@ -23,11 +24,16 @@ def generate_projects_command(
     no_cache: Annotated[
         bool, Option("--no-cache", help="Regenerate even when the committed spec is unchanged")
     ] = False,
+    check: Annotated[
+        bool,
+        Option("--check", help="Regenerate, then fail if any spec or generated client differs from the committed tree"),
+    ] = False,
     root: Annotated[Path, Option(help="Repository root the project paths resolve against")] = Path(),
 ) -> None:
     settings = load_config(config)
     root = root.resolve()
     dump_spec = SpecProducer(settings.spec_command, env=settings.spec_env)
+    regenerate = no_cache or check
 
     with TemporaryDirectory() as templates_directory_string:
         templates_directory = Path(templates_directory_string)
@@ -49,7 +55,7 @@ def generate_projects_command(
             if spec_path.exists():
                 old_spec = spec_path.read_text(encoding="utf-8")
 
-                if openapi_spec == old_spec and not no_cache:
+                if openapi_spec == old_spec and not regenerate:
                     print("OpenAPI spec unchanged, skipping client generation")
                     continue
 
@@ -78,3 +84,11 @@ def generate_projects_command(
                     license_spdx=settings.license_spdx,
                     repository_url=settings.repository_url,
                 )
+
+    if check:
+        pathspec = " ".join(f"{name}/openapi.json" for name in settings.projects) + f" {settings.generated_root}"
+        if bash_output(f"git status --porcelain -- {pathspec}", cwd=root).strip():
+            bash(f"git diff -- {pathspec}", cwd=root)
+            raise SystemExit(
+                "Generated OpenAPI specs/clients are stale; re-run this command without --check and commit the result."
+            )
