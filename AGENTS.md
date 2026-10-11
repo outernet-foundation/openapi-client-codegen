@@ -43,7 +43,7 @@ The generated `.csproj` stays inside the UPM package because it is the `dotnet p
 
 ## Release flow
 
-release-devkit's `AGENTS.md` owns the three-workflow contract; this repo follows it unchanged. Repo-specific facts: release-devkit is never a project dependency (this package sits inside release-devkit's transitive dependency graph; a project-level edge is a resolver cycle), and API-breaking changes ship with a manually bumped `major_minor` (patch-auto assumes additive changes).
+github-actions-toolkit's `AGENTS.md` owns the consumer workflow contract — this repo's `integrate.yml`/`merge-gate.yml`/`release.yml` are plain `uses:` calls at one pinned toolkit SHA plus the `scripts/preflight.py` sidecar — and this repo follows it unchanged. Repo-specific facts: the toolkit is never a project dependency (bashrun and build-artifact-registry are its runtime deps; a project-level edge in any tool repo is a resolver cycle), and API-breaking changes ship with a manually bumped `major_minor` (patch-auto assumes additive changes).
 
 ## See also
 
