@@ -1,3 +1,9 @@
 # prevent OpenAPI Generator from writing gitignores
 .gitignore
 **/.gitignore
+# the python template's CI baggage: never executed (GitHub runs repo-root workflows only),
+# unpinned template actions, and regeneration would overwrite any fix; anchored patterns do
+# not match in the generator's ignore implementation, so the basenames must go global
+**/python.yml
+**/.travis.yml
+**/.gitlab-ci.yml
