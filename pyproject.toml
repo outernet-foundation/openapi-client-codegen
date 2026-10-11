@@ -31,10 +31,6 @@ openapi-client-codegen = "openapi_client_codegen.cli:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/openapi_client_codegen"]
-include = [
-    "src/openapi_client_codegen/py.typed",
-    "src/openapi_client_codegen/_data/**",
-]
 
 [tool.uv.sources]
 
