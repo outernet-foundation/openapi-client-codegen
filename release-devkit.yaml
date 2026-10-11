@@ -1,7 +1,6 @@
-ci_workflow: release.yml
 packages:
   openapi-client-codegen:
     path: .
-    major_minor: "0.2"
-    registries:
-      pypi: openapi-client-codegen
+    major_minor: "0.3"
+    registry: pypi
+    identity: openapi-client-codegen
