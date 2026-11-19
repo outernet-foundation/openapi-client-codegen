@@ -1,0 +1,13 @@
+{
+  "generatorName": "typescript-fetch",
+  "globalProperties": {
+    "apiTests": false,
+    "modelTests": false,
+    "modelDocs": false,
+    "apiDocs": false
+  },
+  "additionalProperties": {
+    "npmVersion": "0.1.0",
+    "disallowAdditionalPropertiesIfNotPresent": false
+  }
+}

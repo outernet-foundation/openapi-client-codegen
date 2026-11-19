@@ -21,6 +21,7 @@ class ProjectsConfig(BaseModel):
     spec_command: str
     spec_env: dict[str, str] | None = None
     npm_scope: str | None = None
+    typescript_npm_scope: str | None = None
     license_spdx: str | None = None
     repository_url: str | None = None
     requires: str
