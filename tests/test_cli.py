@@ -45,6 +45,7 @@ class Recorder:
         templates_dir: Path | None = None,
         extra_references: list[str] | None = None,
         npm_scope: str | None = None,
+        typescript_npm_scope: str | None = None,
         license_spdx: str | None = None,
         repository_url: str | None = None,
     ) -> None:

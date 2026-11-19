@@ -7,8 +7,9 @@ import pytest
 import yaml
 from typer.testing import CliRunner
 
-from openapi_client_codegen import cli, orchestrator
+from openapi_client_codegen import cli, client, orchestrator
 from openapi_client_codegen.cli import app
+from openapi_client_codegen.client import generate_client
 from openapi_client_codegen.downgrade import JsonDict, downgrade_openapi_3_1_to_3_0
 from openapi_client_codegen.orchestrator import ClientNaming, SpecProducer
 
@@ -16,15 +17,36 @@ runner = CliRunner()
 
 RAW_SCHEMA: JsonDict = {"openapi": "3.1.0", "info": {"title": "demo", "version": "0.0.0"}, "paths": {}}
 
+STOCK_PACKAGE_JSON = (
+    json.dumps(
+        {
+            "name": "placeholder",
+            "version": "0.1.0",
+            "author": "OpenAPI-Generator",
+            "repository": {"type": "git", "url": "https://github.com/GIT_USER_ID/GIT_REPO_ID.git"},
+        },
+        indent=2,
+    )
+    + "\n"
+)
+
 
 class Recorder:
     def __init__(self) -> None:
         self.generated: list[tuple[str, Path, ClientNaming]] = []
         self.commands: list[tuple[str, Path | None, dict[str, str] | None]] = []
+        self.scopes: list[str | None] = []
+        self.bash_commands: list[str] = []
 
     def fake_bash_output(self, command: str, *, cwd: Path | None = None, env: dict[str, str] | None = None) -> str:
         self.commands.append((command, cwd, env))
         return json.dumps(RAW_SCHEMA)
+
+    def fake_bash(self, command: str, *, cwd: Path | None = None, env: dict[str, str] | None = None) -> None:
+        self.bash_commands.append(command)
+        if "-g typescript-fetch" in command:
+            output_directory = Path(command.split(" -o ")[1].split(" ")[0])
+            (output_directory / "package.json").write_text(STOCK_PACKAGE_JSON, encoding="utf-8")
 
     def fake_regenerate_templates(self, target_dir: Path, extra_patches_dir: Path | None = None) -> None:
         pass
@@ -38,10 +60,12 @@ class Recorder:
         templates_dir: Path | None = None,
         extra_references: list[str] | None = None,
         npm_scope: str | None = None,
+        typescript_npm_scope: str | None = None,
         license_spdx: str | None = None,
         repository_url: str | None = None,
     ) -> None:
         self.generated.append((generator, output_dir, names))
+        self.scopes.append(typescript_npm_scope)
 
 
 @pytest.fixture
@@ -186,3 +210,68 @@ def test_spec_producer_overlays_env(recorder: Recorder) -> None:
     assert recorder.commands == [
         ("uv run --project . python -m src.dump_openapi", Path("docker/api"), {"CODEGEN": "1"})
     ]
+
+
+def test_typescript_fetch_client_and_scope_pass_through(tmp_path: Path, recorder: Recorder) -> None:
+    make_project(tmp_path, "docker/api")
+
+    settings: dict[str, object] = {
+        "projects": {"docker/api": ["typescript-fetch"]},
+        "root_name": "placeframe",
+        "generated_root": str(tmp_path / "generated"),
+        "spec_command": "dump-openapi",
+        "typescript_npm_scope": "placeframe",
+        "requires": ">=0.1",
+    }
+    config = tmp_path / "clients.yaml"
+    config.write_text(yaml.safe_dump(settings, default_flow_style=False, sort_keys=False), encoding="utf-8")
+    result = runner.invoke(app, ["--config", str(config), "--root", str(tmp_path)])
+    assert result.exit_code == 0
+
+    assert [(generator, output_dir.name) for generator, output_dir, _ in recorder.generated] == [
+        ("typescript-fetch", "api-client")
+    ]
+    assert recorder.generated[0][1] == tmp_path / "generated" / "typescript-fetch" / "api-client"
+    assert recorder.scopes == ["placeframe"]
+
+
+def test_typescript_fetch_composes_npm_name(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    recorder = Recorder()
+    monkeypatch.setattr(client, "bash", recorder.fake_bash)
+
+    names = ClientNaming(
+        base="api-client",
+        dashed="placeframe-api-client",
+        underscored="placeframe_api_client",
+        camel="PlaceframeApiClient",
+    )
+
+    generate_client(
+        json.dumps(RAW_SCHEMA),
+        "typescript-fetch",
+        tmp_path / "scoped",
+        names,
+        typescript_npm_scope="placeframe",
+        license_spdx="Apache-2.0",
+        repository_url="https://github.com/outernet-foundation/placeframe.git",
+    )
+    generate_client(json.dumps(RAW_SCHEMA), "typescript-fetch", tmp_path / "unscoped", names)
+
+    composed: list[str] = []
+    for command in recorder.bash_commands:
+        config_path = Path(command.split(" -c ")[1].split(" ")[0])
+        generator_config = json.loads(config_path.read_text(encoding="utf-8"))
+        composed.append(generator_config["additionalProperties"]["npmName"])
+
+    assert composed == ["@placeframe/api-client", "placeframe-api-client"]
+
+    scoped_package = json.loads((tmp_path / "scoped" / "package.json").read_text(encoding="utf-8"))
+    assert scoped_package["repository"] == {
+        "type": "git",
+        "url": "https://github.com/outernet-foundation/placeframe.git",
+    }
+    assert scoped_package["author"] == "placeframe"
+    assert scoped_package["license"] == "Apache-2.0"
+
+    unscoped_package = json.loads((tmp_path / "unscoped" / "package.json").read_text(encoding="utf-8"))
+    assert unscoped_package["repository"]["url"] == "https://github.com/GIT_USER_ID/GIT_REPO_ID.git"
