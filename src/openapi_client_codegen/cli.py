@@ -81,6 +81,7 @@ def generate_projects_command(
                     names,
                     templates_dir=templates_directory,
                     npm_scope=settings.npm_scope,
+                    typescript_npm_scope=settings.typescript_npm_scope,
                     license_spdx=settings.license_spdx,
                     repository_url=settings.repository_url,
                 )

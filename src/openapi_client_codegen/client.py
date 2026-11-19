@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from bashrun.bash import bash
 
+from .npm import write_npm_package_metadata
 from .resources import CONFIGS_DIR, IGNORE_FILE, OPENAPI_GENERATOR_CLI_VERSION
 from .unity import write_unity_package_metadata
 
@@ -27,6 +28,7 @@ def generate_client(
     templates_dir: Path | None = None,
     extra_references: list[str] | None = None,
     npm_scope: str | None = None,
+    typescript_npm_scope: str | None = None,
     license_spdx: str | None = None,
     repository_url: str | None = None,
 ) -> None:
@@ -38,6 +40,10 @@ def generate_client(
 
     if generator == "csharp":
         client_config["additionalProperties"]["packageName"] = names.camel
+    elif generator == "typescript-fetch":
+        client_config["additionalProperties"]["npmName"] = (
+            names.dashed if typescript_npm_scope is None else f"@{typescript_npm_scope}/{names.base}"
+        )
     else:
         client_config["additionalProperties"]["projectName"] = names.dashed
         client_config["additionalProperties"]["packageName"] = names.underscored
@@ -86,6 +92,13 @@ def generate_client(
                 names.camel,
                 extra_references,
                 npm_name=npm_name,
+                license_spdx=license_spdx,
+                repository_url=repository_url,
+            )
+        elif generator == "typescript-fetch":
+            write_npm_package_metadata(
+                temporary_directory / "package.json",
+                author=typescript_npm_scope,
                 license_spdx=license_spdx,
                 repository_url=repository_url,
             )
