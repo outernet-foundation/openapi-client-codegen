@@ -1,6 +1,7 @@
 from pathlib import Path
 
 OPENAPI_GENERATOR_CLI_VERSION = "7.22.0"
+TYPESCRIPT_VERSION = "5.9.3"
 
 _DATA_DIR = Path(__file__).parent / "_data"
 CONFIGS_DIR = _DATA_DIR / "configs"

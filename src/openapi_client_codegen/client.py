@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING
 
 from bashrun.bash import bash
 
-from .npm import write_npm_package_metadata
-from .resources import CONFIGS_DIR, IGNORE_FILE, OPENAPI_GENERATOR_CLI_VERSION
+from .npm import generate_npm_lockfile, write_npm_package_metadata
+from .resources import CONFIGS_DIR, IGNORE_FILE, OPENAPI_GENERATOR_CLI_VERSION, TYPESCRIPT_VERSION
 from .unity import write_unity_package_metadata
 
 if TYPE_CHECKING:
@@ -101,7 +101,9 @@ def generate_client(
                 author=typescript_npm_scope,
                 license_spdx=license_spdx,
                 repository_url=repository_url,
+                typescript_pin=TYPESCRIPT_VERSION,
             )
+            generate_npm_lockfile(temporary_directory)
 
         print(f"Syncing to {output_dir}...")
 
